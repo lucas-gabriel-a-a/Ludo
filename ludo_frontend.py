@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 LUDO em Python (terminal)  -  4 cores, 4 peoes por cor.
 
@@ -891,7 +890,12 @@ class LudoGUI:
 
 
 def configurar_gui(root):
-    """Janela inicial da versao grafica."""
+    """Janela inicial da versao grafica.
+
+    Cada cor pode ser configurada independentemente como Humano, Bot ou
+    Fora do jogo. Assim e possivel jogar, por exemplo, com 2 humanos,
+    2 humanos + 1 bot, ou 2 humanos + 2 bots.
+    """
     configuracao = tk.Toplevel(root)
     configuracao.title("Configurar Ludo")
     configuracao.resizable(False, False)
@@ -900,46 +904,61 @@ def configurar_gui(root):
     frame = tk.Frame(configuracao, padx=20, pady=20)
     frame.pack()
 
+    tk.Label(frame, text="LUDO", font=("Arial", 24, "bold")).pack(pady=(0, 8))
     tk.Label(
-        frame, text="LUDO", font=("Arial", 24, "bold")
-    ).pack(pady=(0, 15))
+        frame,
+        text="Escolha quais cores participam e quem controla cada uma.",
+        justify="left"
+    ).pack(pady=(0, 12))
 
-    tk.Label(frame, text="Número de jogadores:").pack(anchor="w")
+    tk.Label(frame, text="Número de jogadores (2 a 4):").pack(anchor="w")
     numero = tk.IntVar(value=4)
-    tk.Spinbox(
-        frame, from_=2, to=4, textvariable=numero, width=5
-    ).pack(anchor="w", pady=(0, 12))
+    tk.Spinbox(frame, from_=2, to=4, textvariable=numero, width=5).pack(
+        anchor="w", pady=(0, 12)
+    )
 
-    escolhas = []
     nomes = ["Vermelho", "Verde", "Amarelo", "Azul"]
+    escolhas = []
 
-    for k in range(4):
-        if k == 3:
-            padrao = "Humano"
-        else:
-            padrao = "Bot"
-
+    # Azul e Humano como padrao. As demais cores participam como bots,
+    # permitindo imediatamente uma partida humano x bots.
+    for k, nome in enumerate(nomes):
+        padrao = "Humano" if k == 3 else "Bot"
         var = tk.StringVar(value=padrao)
         escolhas.append(var)
 
         linha = tk.Frame(frame)
-        linha.pack(fill="x", pady=2)
-        tk.Label(linha, text=f"{nomes[k]}:", width=10, anchor="w").pack(side="left")
-        tk.OptionMenu(linha, var, "Humano", "Bot").pack(side="left")
+        linha.pack(fill="x", pady=3)
+        tk.Label(linha, text=f"{nome}:", width=10, anchor="w").pack(side="left")
+        tk.OptionMenu(linha, var, "Humano", "Bot", "Fora do jogo").pack(side="left")
+
+    aviso = tk.Label(frame, text="", fg="#c62828", justify="left", wraplength=330)
+    aviso.pack(pady=(8, 0))
 
     def iniciar():
-        n = max(2, min(4, int(numero.get())))
-        ativas = {2: [3, 0], 3: [3, 0, 1], 4: [3, 0, 1, 2]}[n]
-        humanos = [
-            c for c in ativas if escolhas[c].get() == "Humano"
-        ]
-        if not humanos:
-            messagebox.showwarning(
-                "Configuração",
-                "Escolha pelo menos um jogador humano."
-            )
+        try:
+            n = max(2, min(4, int(numero.get())))
+        except (TypeError, ValueError):
+            aviso.config(text="Número de jogadores inválido.")
             return
 
+        # A ordem dos turnos segue a ordem das cores no tabuleiro, mas somente
+        # as cores marcadas como Humano ou Bot participam.
+        ativas = [c for c in range(4) if escolhas[c].get() != "Fora do jogo"]
+
+        if len(ativas) != n:
+            aviso.config(text=f"Selecione exatamente {n} cores para participar.")
+            return
+
+        humanos = [c for c in ativas if escolhas[c].get() == "Humano"]
+        bots = [c for c in ativas if escolhas[c].get() == "Bot"]
+
+        if not humanos:
+            aviso.config(text="Escolha pelo menos um jogador humano.")
+            return
+
+        # Guarda a configuracao por cor. O Jogo usa o conjunto de humanos,
+        # portanto cada cor selecionada conserva exatamente o tipo escolhido.
         configuracao.destroy()
         jogo = Jogo(ativas, humanos)
         LudoGUI(root, jogo)
